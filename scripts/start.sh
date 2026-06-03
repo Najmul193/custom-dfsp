@@ -11,14 +11,14 @@ if [ -f .env ]; then
   set +a
 fi
 
-# Determine which compose command to use
-COMPOSE_CMD=""
-if command -v docker compose &>/dev/null; then
-  COMPOSE_CMD="docker compose"
-elif command -v docker-compose &>/dev/null; then
-  COMPOSE_CMD="docker-compose"
+# Check for docker compose
+HAS_COMPOSE=false
+if docker compose version &>/dev/null; then
+  HAS_COMPOSE=true
+elif docker-compose --version &>/dev/null; then
+  HAS_COMPOSE=true
 else
-  echo "ERROR: Neither 'docker compose' nor 'docker-compose' found. Please install Docker Compose."
+  echo "ERROR: Neither 'docker compose' nor 'docker-compose' found."
   exit 1
 fi
 
@@ -29,15 +29,25 @@ echo "========================================"
 # Step 1: Start core DFSP services (sender, receiver, visualizer)
 echo ""
 echo "[1/2] Starting DFSP services (sender, receiver, visualizer)..."
-$COMPOSE_CMD down --remove-orphans 2>/dev/null || true
-$COMPOSE_CMD up -d
+if docker compose version &>/dev/null; then
+  docker compose down --remove-orphans 2>/dev/null || true
+  docker compose up -d
+else
+  docker-compose down --remove-orphans 2>/dev/null || true
+  docker-compose up -d
+fi
 echo "  ✓ DFSP services started"
 
 # Step 2: Start UI services (sender UI, receiver UI, core monitor)
 echo ""
 echo "[2/2] Starting UI dashboard services..."
-$COMPOSE_CMD -f docker-compose-ui.yml down --remove-orphans 2>/dev/null || true
-$COMPOSE_CMD -f docker-compose-ui.yml up -d
+if docker compose version &>/dev/null; then
+  docker compose -f docker-compose-ui.yml down --remove-orphans 2>/dev/null || true
+  docker compose -f docker-compose-ui.yml up -d
+else
+  docker-compose -f docker-compose-ui.yml down --remove-orphans 2>/dev/null || true
+  docker-compose -f docker-compose-ui.yml up -d
+fi
 echo "  ✓ UI services started"
 
 # Show summary
@@ -62,7 +72,7 @@ echo ""
 
 # Quick health check
 echo "  Running health check..."
-sleep 3
+sleep 5
 if command -v curl &>/dev/null; then
   for svc in 4001 4002 4003; do
     status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$svc/api/health" 2>/dev/null || echo "000")
