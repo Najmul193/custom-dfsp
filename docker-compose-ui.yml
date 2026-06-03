@@ -1,0 +1,77 @@
+version: "3.8"
+
+services:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # UI Services (NEW - Isolated)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ui-sender-dfsp:
+    build:
+      context: ./ui-sender-dfsp
+      dockerfile: Dockerfile.dev
+    container_name: ui-sender-dfsp
+    ports:
+      - "4001:4001"
+    environment:
+      - CUSTOM_DFSP_URL=http://custom-dfsp-sender:3001
+      - CORE_ADMIN_URL=http://central-ledger:3001
+    depends_on:
+      - custom-dfsp-sender
+    networks:
+      - dfsp-net
+      - mojaloop-net
+    healthcheck:
+      test: wget -q http://127.0.0.1:4001/api/health -O /dev/null || exit 1
+      interval: 30s
+      retries: 3
+      timeout: 10s
+
+  ui-receiver-dfsp:
+    build:
+      context: ./ui-receiver-dfsp
+      dockerfile: Dockerfile.dev
+    container_name: ui-receiver-dfsp
+    ports:
+      - "4002:4002"
+    environment:
+      - CUSTOM_DFSP_URL=http://custom-dfsp-receiver:3002
+    depends_on:
+      - custom-dfsp-receiver
+    networks:
+      - dfsp-net
+      - mojaloop-net
+    healthcheck:
+      test: wget -q http://127.0.0.1:4002/api/health -O /dev/null || exit 1
+      interval: 30s
+      retries: 3
+      timeout: 10s
+
+  ui-core-monitor:
+    build:
+      context: ./ui-core-monitor
+      dockerfile: Dockerfile.dev
+    container_name: ui-core-monitor
+    ports:
+      - "4003:4003"
+    environment:
+      - CENTRAL_LEDGER_URL=http://central-ledger:3001
+      - ML_API_ADAPTER_URL=http://ml-api-adapter:3000
+      - QUOTING_SERVICE_URL=http://quoting-service:3002
+    depends_on:
+      - custom-dfsp-sender
+      - custom-dfsp-receiver
+    networks:
+      - dfsp-net
+      - mojaloop-net
+    healthcheck:
+      test: wget -q http://127.0.0.1:4003/api/health -O /dev/null || exit 1
+      interval: 30s
+      retries: 3
+      timeout: 10s
+
+networks:
+  dfsp-net:
+    driver: bridge
+  mojaloop-net:
+    external: true
+    name: mojaloop-net

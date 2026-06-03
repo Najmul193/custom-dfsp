@@ -35,6 +35,62 @@ async function sendEvent(event) {
   }
 }
 
+const SENDER_UI_URL = process.env.SENDER_UI_URL || 'http://ui-sender-dfsp:4001';
+const RECEIVER_UI_URL = process.env.RECEIVER_UI_URL || 'http://ui-receiver-dfsp:4002';
+const CORE_MONITOR_URL = process.env.CORE_MONITOR_URL || 'http://ui-core-monitor:4003';
+
+async function notifyUI(transfer) {
+  if (FSP_ID === 'custom-sender-fsp') {
+    try {
+      console.log(`[UI Notification] Notifying Sender UI of transfer ${transfer.id} status ${transfer.state}`);
+      await fetch(`${SENDER_UI_URL}/api/update-transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transferId: transfer.id, status: transfer.state }),
+      });
+    } catch (err) {
+      console.error(`[UI Notification] Failed to notify Sender UI:`, err.message);
+    }
+  } else if (FSP_ID === 'custom-receiver-fsp' && transfer.state === 'COMMITTED') {
+    try {
+      console.log(`[UI Notification] Notifying Receiver UI of incoming transfer ${transfer.id}`);
+      await fetch(`${RECEIVER_UI_URL}/api/receive-transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transferId: transfer.id,
+          fromFsp: transfer.payerFsp,
+          amount: parseFloat(transfer.amount?.amount || transfer.amount),
+          currency: transfer.amount?.currency || transfer.currency || 'XXX',
+          description: transfer.description || 'Incoming Transfer'
+        }),
+      });
+    } catch (err) {
+      console.error(`[UI Notification] Failed to notify Receiver UI:`, err.message);
+    }
+  }
+}
+
+async function notifyCoreMonitor(transfer) {
+  try {
+    console.log(`[Core Monitor Notification] Notifying Core Monitor of transfer ${transfer.id} status ${transfer.state}`);
+    await fetch(`${CORE_MONITOR_URL}/api/settlement/record-transfer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transferId: transfer.id,
+        payerFsp: transfer.payerFsp,
+        payeeFsp: transfer.payeeFsp,
+        amount: parseFloat(transfer.amount?.amount || transfer.amount),
+        currency: transfer.amount?.currency || transfer.currency || 'XXX',
+        status: transfer.state
+      }),
+    });
+  } catch (err) {
+    console.error(`[Core Monitor Notification] Failed to notify Core Monitor:`, err.message);
+  }
+}
+
 // ── Health check ──────────────────────────────────────────────────────────
 
 app.get('/health', (req, res) => {
@@ -86,7 +142,7 @@ app.post('/initiate-transfer', async (req, res) => {
   });
 
   // Create transfer in store (PENDING)
-  store.createTransfer(transferId, {
+  const newTransfer = store.createTransfer(transferId, {
     quoteId,
     payerFsp: FSP_ID,
     payeeFsp,
@@ -96,6 +152,8 @@ app.post('/initiate-transfer', async (req, res) => {
     fulfilment,
     ilpPacket,
   });
+
+  notifyCoreMonitor(newTransfer);
 
   // Build the quote request per FSPIOP spec
   const quoteRequest = {
@@ -253,12 +311,14 @@ app.put('/quotes/:id', async (req, res) => {
     console.log(`[Transfer Prepare] Sending transfer ${quote.transferId} to core`);
     const transferRes = await adapter.postToCore('/transfers', transferBody, 'POST');
 
-    store.updateTransfer(quote.transferId, {
+    const updatedTx = store.updateTransfer(quote.transferId, {
       state: store.TRANSFER_STATES.PREPARED,
       ilpPacket: quoteResponse.ilpPacket,
       condition: quoteResponse.condition,
       coreTransferResponse: transferRes,
     });
+
+    notifyCoreMonitor(updatedTx);
 
     sendEvent({
       id: quote.transferId,
@@ -291,11 +351,13 @@ app.post('/transfers', async (req, res) => {
     body: transfer,
   });
 
-  store.createTransfer(transferId, {
+  const newTransfer = store.createTransfer(transferId, {
     ...transfer,
     state: store.TRANSFER_STATES.PREPARED,
     fulfilment: matchingQuote?.fulfilment,
   });
+
+  notifyCoreMonitor(newTransfer);
 
   // Auto-fulfil: simulate fulfilling the transfer after a short delay
   if (AUTO_FULFIL) {
@@ -327,11 +389,14 @@ app.post('/transfers', async (req, res) => {
       console.log(`[Fulfil] Sending fulfilment for transfer ${transferId}`);
       const fulfilRes = await adapter.putFulfilment(transferId, fulfilmentBody, transfer.payerFsp);
 
-      store.updateTransfer(transferId, {
+      const updatedTx = store.updateTransfer(transferId, {
         state: store.TRANSFER_STATES.COMMITTED,
         fulfilment,
         fulfilmentResponse: fulfilRes,
       });
+
+      notifyUI(updatedTx);
+      notifyCoreMonitor(updatedTx);
 
       sendEvent({
         id: transferId,
@@ -385,11 +450,14 @@ app.put('/transfers/:id', async (req, res) => {
     }
   }
 
-  store.updateTransfer(transferId, {
+  const updatedTx = store.updateTransfer(transferId, {
     state: store.TRANSFER_STATES.COMMITTED,
     fulfilment: fulfilBody.fulfilment,
     completedTimestamp: fulfilBody.completedTimestamp,
   });
+
+  notifyUI(updatedTx);
+  notifyCoreMonitor(updatedTx);
 
   res.status(200).json({ received: true, transferId });
 });
@@ -408,12 +476,55 @@ app.put('/transfers/:id/error', async (req, res) => {
     body: errorBody,
   });
 
-  store.updateTransfer(transferId, {
+  const updatedTx = store.updateTransfer(transferId, {
     state: store.TRANSFER_STATES.FAILED,
     errorInfo: errorBody.errorInformation,
   });
 
+  notifyUI(updatedTx);
+  notifyCoreMonitor(updatedTx);
+
   res.status(200).json({ received: true, transferId });
+});
+
+// ── Receive quote error callback from core ──────────────────────────────
+
+app.put('/quotes/:id/error', async (req, res) => {
+  const quoteId = req.params.id;
+  const errorBody = req.body;
+
+  console.log(`[Quote Error] PUT /quotes/${quoteId}/error`, JSON.stringify(errorBody));
+  sendEvent({
+    id: quoteId,
+    fspId: FSP_ID,
+    type: 'quote-error',
+    body: errorBody,
+  });
+
+  const quote = store.getQuote(quoteId);
+  if (!quote) {
+    return res.status(404).json(ilp.fspiopError('3200', 'Quote not found'));
+  }
+
+  store.updateQuote(quoteId, {
+    state: store.QUOTE_STATES.REJECTED,
+    errorInfo: errorBody.errorInformation,
+  });
+
+  // Find the transfer associated with this quote and update its state to FAILED
+  if (quote.transferId) {
+    const updatedTx = store.updateTransfer(quote.transferId, {
+      state: store.TRANSFER_STATES.FAILED,
+      errorInfo: errorBody.errorInformation,
+    });
+    
+    if (updatedTx) {
+      notifyUI(updatedTx);
+      notifyCoreMonitor(updatedTx);
+    }
+  }
+
+  res.status(200).json({ received: true, quoteId });
 });
 
 // ── Generic catch-all callback handler ──────────────────────────────────

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sender DFSP - Banking Portal</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header {
+      background: rgba(255,255,255,0.95);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header h1 { color: #667eea; margin-bottom: 5px; }
+    .header .status { font-size: 13px; color: #666; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 18px;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 10px;
+    }
+    .balance-display {
+      font-size: 32px;
+      font-weight: bold;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+    .accounts-list {
+      list-style: none;
+      margin-bottom: 15px;
+    }
+    .accounts-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .accounts-list .currency { font-weight: 600; color: #667eea; }
+    .accounts-list .amount { color: #333; font-weight: 500; }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-primary {
+      background: #667eea;
+      color: white;
+      width: 100%;
+    }
+    .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+    .btn-primary:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+    .alert {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    .transaction-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      border-left: 4px solid #667eea;
+    }
+    .transaction-item .desc { flex: 1; }
+    .transaction-item .amount {
+      font-weight: 600;
+      color: #d9534f;
+      min-width: 80px;
+      text-align: right;
+    }
+    .transaction-item.success { border-left-color: #5cb85c; }
+    .transaction-item.pending { border-left-color: #f0ad4e; }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-badge.pending { background: #fff3cd; color: #856404; }
+    .status-badge.committed { background: #d4edda; color: #155724; }
+    .status-badge.failed { background: #f8d7da; color: #721c24; }
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .two-col { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏦 Sender DFSP Banking Portal</h1>
+      <p class="status">Secure Payment Transfer System | <span id="fspId">Loading...</span></p>
+    </div>
+
+    <div class="grid">
+      <!-- Dashboard -->
+      <div class="card">
+        <h2>💰 Account Overview</h2>
+        <div id="dashboardContent">Loading...</div>
+      </div>
+
+      <!-- Transfer Form -->
+      <div class="card">
+        <h2>📤 Send Transfer</h2>
+        <div id="transferFormContent">
+          <form id="transferForm">
+            <div id="formMessage"></div>
+            <div class="form-group">
+              <label>Recipient FSP ID</label>
+              <input type="text" id="payeeFsp" placeholder="e.g., custom-receiver-fsp" required>
+            </div>
+            <div class="form-group">
+              <label>Amount</label>
+              <input type="number" id="amount" placeholder="100.00" min="0.01" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label>Currency</label>
+              <select id="currency" required>
+                <option value="XXX" selected>XXX (System Currency)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Description (Optional)</label>
+              <textarea id="description" placeholder="Transfer description..." rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Send Transfer</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card">
+      <h2>📋 Recent Transactions</h2>
+      <div id="transactionsContent">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    let dashboardData = null;
+
+    async function loadDashboard() {
+      try {
+        const response = await fetch(`${API_BASE}/dashboard`);
+        dashboardData = await response.json();
+        
+        document.getElementById('fspId').textContent = dashboardData.fspId;
+        
+        const html = `
+          <div class="balance-display">${dashboardData.totalBalance.toLocaleString()} XXX</div>
+          <p style="color: #666; font-size: 13px; margin-bottom: 15px;">${dashboardData.accountHolder}</p>
+          <h3 style="color: #333; font-size: 14px; margin-bottom: 10px;">Accounts by Currency</h3>
+          <ul class="accounts-list">
+            ${Object.entries(dashboardData.accounts).map(([curr, acc]) => `
+              <li>
+                <span class="currency">${curr}</span>
+                <span class="amount">${acc.balance.toLocaleString()}</span>
+              </li>
+            `).join('')}
+          </ul>
+          <p style="color: #999; font-size: 12px;">Pending transfers: <strong>${dashboardData.pendingTransfersCount}</strong></p>
+        `;
+        document.getElementById('dashboardContent').innerHTML = html;
+      } catch (error) {
+        document.getElementById('dashboardContent').innerHTML = `<div class="alert alert-error">Error loading dashboard: ${error.message}</div>`;
+      }
+    }
+
+    async function loadTransactions() {
+      try {
+        const response = await fetch(`${API_BASE}/transactions?limit=10`);
+        const data = await response.json();
+        
+        if (data.transactions.length === 0) {
+          document.getElementById('transactionsContent').innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No transactions yet</p>';
+          return;
+        }
+
+        const html = data.transactions.map(tx => `
+          <div class="transaction-item ${tx.status.toLowerCase()}">
+            <div class="desc">
+              <strong>${tx.type}</strong><br>
+              ${tx.fromFsp} → ${tx.toFsp}<br>
+              <small style="color: #999;">${new Date(tx.timestamp).toLocaleString()}</small>
+            </div>
+            <div style="text-align: center; margin: 0 15px;">
+              <span class="status-badge ${tx.status.toLowerCase()}">${tx.status}</span>
+            </div>
+            <div class="amount">-${tx.amount} ${tx.currency}</div>
+          </div>
+        `).join('');
+        
+        document.getElementById('transactionsContent').innerHTML = html;
+      } catch (error) {
+        document.getElementById('transactionsContent').innerHTML = `<div class="alert alert-error">Error loading transactions: ${error.message}</div>`;
+      }
+    }
+
+    document.getElementById('transferForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formMsg = document.getElementById('formMessage');
+      const btn = e.target.querySelector('button');
+      
+      const payeeFsp = document.getElementById('payeeFsp').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      const currency = document.getElementById('currency').value;
+      const description = document.getElementById('description').value;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span>Processing...';
+      formMsg.innerHTML = '';
+
+      try {
+        const response = await fetch(`${API_BASE}/transfer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payeeFsp, amount, currency, description })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          formMsg.innerHTML = `<div class="alert alert-success">✓ Transfer initiated! ID: ${result.transferId}</div>`;
+          e.target.reset();
+          setTimeout(() => {
+            loadDashboard();
+            loadTransactions();
+          }, 500);
+        } else {
+          formMsg.innerHTML = `<div class="alert alert-error">✗ ${result.error}</div>`;
+        }
+      } catch (error) {
+        formMsg.innerHTML = `<div class="alert alert-error">✗ Request failed: ${error.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Send Transfer';
+      }
+    });
+
+    // Initial load and refresh
+    loadDashboard();
+    loadTransactions();
+    setInterval(loadTransactions, 3000);
+  </script>
+</body>
+</html>
