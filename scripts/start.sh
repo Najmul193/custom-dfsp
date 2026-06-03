@@ -1,8 +1,26 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${SCRIPT_DIR}/.."
 cd "${ROOT_DIR}"
+
+# Source .env if it exists
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
+# Determine which compose command to use
+COMPOSE_CMD=""
+if command -v docker compose &>/dev/null; then
+  COMPOSE_CMD="docker compose"
+elif command -v docker-compose &>/dev/null; then
+  COMPOSE_CMD="docker-compose"
+else
+  echo "ERROR: Neither 'docker compose' nor 'docker-compose' found. Please install Docker Compose."
+  exit 1
+fi
 
 echo "========================================"
 echo "  Starting All DFSP + UI Services"
@@ -11,15 +29,15 @@ echo "========================================"
 # Step 1: Start core DFSP services (sender, receiver, visualizer)
 echo ""
 echo "[1/2] Starting DFSP services (sender, receiver, visualizer)..."
-docker-compose down --remove-orphans 2>/dev/null
-docker-compose up -d
+$COMPOSE_CMD down --remove-orphans 2>/dev/null || true
+$COMPOSE_CMD up -d
 echo "  ✓ DFSP services started"
 
 # Step 2: Start UI services (sender UI, receiver UI, core monitor)
 echo ""
 echo "[2/2] Starting UI dashboard services..."
-docker compose -f docker-compose-ui.yml down --remove-orphans 2>/dev/null
-docker compose -f docker-compose-ui.yml up -d
+$COMPOSE_CMD -f docker-compose-ui.yml down --remove-orphans 2>/dev/null || true
+$COMPOSE_CMD -f docker-compose-ui.yml up -d
 echo "  ✓ UI services started"
 
 # Show summary
@@ -28,8 +46,8 @@ echo "========================================"
 echo "  All Services Started!"
 echo "========================================"
 echo ""
-echo "  Service              URL                          Status"
-echo "  ───────────────────────────────────────────────────────"
+echo "  Service              URL"
+echo "  ───────────────────────────────────────"
 echo "  Sender DFSP          http://localhost:${SENDER_PORT:-8444}"
 echo "  Receiver DFSP        http://localhost:${RECEIVER_PORT:-8445}"
 echo "  Custom Sender        http://localhost:${CUSTOM_SENDER_PORT:-3001}"
