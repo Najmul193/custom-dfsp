@@ -1,0 +1,8 @@
+# Local environment and runtime files
+.env
+node_modules/
+logs/
+data/
+/docker/visualizer/app/node_modules/
+*.log
+.DS_Store

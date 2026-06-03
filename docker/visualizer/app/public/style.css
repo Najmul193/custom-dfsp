@@ -1,0 +1,144 @@
+:root {
+  --bg: #0f172a;
+  --card: #15273d;
+  --border: #334155;
+  --text: #e2e8f0;
+  --accent: #38bdf8;
+  --healthy: #22c55e;
+  --unhealthy: #f97316;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: radial-gradient(circle at top, #1e293b, #0b1120);
+  color: var(--text);
+}
+
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2.3rem;
+}
+
+header p {
+  margin: 12px 0 24px;
+  color: #cbd5e1;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.card {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px;
+  min-height: 220px;
+}
+
+.diagram {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.box {
+  flex: 1 1 160px;
+  min-height: 80px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+}
+
+.arrow {
+  font-size: 2rem;
+  color: var(--accent);
+}
+
+.status-item {
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border);
+}
+
+.service-name {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.service-state {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+.service-state.healthy {
+  background: rgba(34, 197, 94, 0.18);
+  color: var(--healthy);
+}
+
+.service-state.unhealthy {
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--unhealthy);
+}
+
+.service-details {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.actions {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 14px 22px;
+  background: var(--accent);
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.95;
+}
+
+#last-updated {
+  opacity: 0.8;
+}
+
+@media (max-width: 760px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}

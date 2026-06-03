@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DFSP Visualizer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>DFSP Visualizer</h1>
+      <p>Monitor sender, receiver, and core connectivity in one portable dashboard.</p>
+    </header>
+
+    <section class="stats">
+      <div class="card" id="status-card">
+        <h2>Status</h2>
+        <div id="status-list">Loading...</div>
+      </div>
+      <div class="card" id="network-card">
+        <h2>Network Diagram</h2>
+        <div class="diagram">
+          <div class="box">Sender DFSP</div>
+          <div class="arrow">→</div>
+          <div class="box">Core</div>
+          <div class="arrow">→</div>
+          <div class="box">Receiver DFSP</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="refresh-button">Refresh status</button>
+      <div id="last-updated"></div>
+    </section>
+    <section class="events">
+      <div class="card">
+        <h2>Realtime Events</h2>
+        <div id="events-list">No events yet</div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

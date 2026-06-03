@@ -1,0 +1,119 @@
+version: "3.8"
+
+services:
+  sender-dfsp:
+    image: mojaloop/simulator:v12.2.4
+    container_name: sender-dfsp
+    ports:
+      - "${SENDER_PORT}:8444"
+    environment:
+      - LOG_LEVEL=info
+      - CBH_FSPIOP_FSP_ID=${SENDER_FSPID}
+      - CBH_FSPIOP_CALLBACK_HTTP_KEEPALIVE=true
+      - CBH_FSPIOP_ALS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_ALS_PORT}
+      - CBH_FSPIOP_QUOTES_ENDPOINT_URL=http://${CORE_HOST}:${CORE_QUOTE_PORT}
+      - CBH_FSPIOP_TRANSFERS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_PORT}
+      - CBH_FSPIOP_TRANSACTION_REQUESTS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_TRANSACTION_REQUESTS_PORT}
+      - TRANSFERS_FULFIL_RESPONSE_DISABLED=false
+    networks:
+      - dfsp-net
+      - mojaloop-net
+    healthcheck:
+      test: wget -q http://127.0.0.1:8444/health -O /dev/null || exit 1
+      interval: 30s
+      retries: 5
+      timeout: 10s
+
+  receiver-dfsp:
+    image: mojaloop/simulator:v12.2.4
+    container_name: receiver-dfsp
+    ports:
+      - "${RECEIVER_PORT}:8444"
+    environment:
+      - LOG_LEVEL=info
+      - CBH_FSPIOP_FSP_ID=${RECEIVER_FSPID}
+      - CBH_FSPIOP_CALLBACK_HTTP_KEEPALIVE=true
+      - CBH_FSPIOP_ALS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_ALS_PORT}
+      - CBH_FSPIOP_QUOTES_ENDPOINT_URL=http://${CORE_HOST}:${CORE_QUOTE_PORT}
+      - CBH_FSPIOP_TRANSFERS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_PORT}
+      - CBH_FSPIOP_TRANSACTION_REQUESTS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_TRANSACTION_REQUESTS_PORT}
+      - TRANSFERS_FULFIL_RESPONSE_DISABLED=false
+    networks:
+      - dfsp-net
+      - mojaloop-net
+    healthcheck:
+      test: wget -q http://127.0.0.1:8444/health -O /dev/null || exit 1
+      interval: 30s
+      retries: 5
+      timeout: 10s
+
+  visualizer-ui:
+    build:
+      context: ./docker/visualizer
+      dockerfile: Dockerfile
+    container_name: dfsp-visualizer-ui
+    ports:
+      - "${VISUALIZER_PORT}:3000"
+    environment:
+      - SENDER_BASE_URL=http://sender-dfsp:8444
+      - RECEIVER_BASE_URL=http://receiver-dfsp:8444
+      - CORE_URL=http://${CORE_HOST}:${CORE_PORT}/health
+      - REFRESH_INTERVAL_SECONDS=${REFRESH_INTERVAL_SECONDS}
+      - VISUALIZER_PORT=3000
+    depends_on:
+      - sender-dfsp
+      - receiver-dfsp
+    networks:
+      - dfsp-net
+      - mojaloop-net
+
+  custom-dfsp-sender:
+    build:
+      context: ./custom-dfsp
+      dockerfile: Dockerfile
+    container_name: custom-dfsp-sender
+    ports:
+      - "${CUSTOM_SENDER_PORT}:3001"
+    environment:
+      - FSP_ID=${CUSTOM_SENDER_FSPID}
+      - PORT=3001
+      - CORE_HOST=${CORE_HOST}
+      - CORE_PORT=${CORE_PORT}
+      - CORE_QUOTE_HOST=${CORE_QUOTE_HOST}
+      - CORE_QUOTE_PORT=${CORE_QUOTE_PORT}
+      - CORE_ALS_HOST=${CORE_ALS_HOST}
+      - CORE_ALS_PORT=${CORE_ALS_PORT}
+      - ADMIN_API_URL=${CORE_ADMIN_URL}
+      - VISUALIZER_URL=http://dfsp-visualizer-ui:3000/events
+    networks:
+      - dfsp-net
+      - mojaloop-net
+
+  custom-dfsp-receiver:
+    build:
+      context: ./custom-dfsp
+      dockerfile: Dockerfile
+    container_name: custom-dfsp-receiver
+    ports:
+      - "${CUSTOM_RECEIVER_PORT}:3002"
+    environment:
+      - FSP_ID=${CUSTOM_RECEIVER_FSPID}
+      - PORT=3002
+      - CORE_HOST=${CORE_HOST}
+      - CORE_PORT=${CORE_PORT}
+      - CORE_QUOTE_HOST=${CORE_QUOTE_HOST}
+      - CORE_QUOTE_PORT=${CORE_QUOTE_PORT}
+      - CORE_ALS_HOST=${CORE_ALS_HOST}
+      - CORE_ALS_PORT=${CORE_ALS_PORT}
+      - ADMIN_API_URL=${CORE_ADMIN_URL}
+      - VISUALIZER_URL=http://dfsp-visualizer-ui:3000/events
+    networks:
+      - dfsp-net
+      - mojaloop-net
+
+networks:
+  dfsp-net:
+    driver: bridge
+  mojaloop-net:
+    external: true
+    name: mojaloop-net
