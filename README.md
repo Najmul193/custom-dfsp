@@ -30,19 +30,13 @@ cp .env.sample .env
 ./scripts/setup.sh
 ```
 
-5. Start the DFSP services:
+5. Start **all** services (DFSPs + UIs) with one command:
 
 ```bash
 ./scripts/start.sh
 ```
 
-6. Start the UI services (separate compose file):
-
-```bash
-docker compose -f docker-compose-ui.yml up -d
-```
-
-7. Open the dashboards:
+6. Open the dashboards:
 
 | Service | URL |
 |---------|-----|
