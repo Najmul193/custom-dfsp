@@ -8,12 +8,11 @@ services:
       - "${SENDER_PORT}:8444"
     environment:
       - LOG_LEVEL=info
-      - CBH_FSPIOP_FSP_ID=${SENDER_FSPID}
-      - CBH_FSPIOP_CALLBACK_HTTP_KEEPALIVE=true
-      - CBH_FSPIOP_ALS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_ALS_PORT}
-      - CBH_FSPIOP_QUOTES_ENDPOINT_URL=http://${CORE_HOST}:${CORE_QUOTE_PORT}
-      - CBH_FSPIOP_TRANSFERS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_PORT}
-      - CBH_FSPIOP_TRANSACTION_REQUESTS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_TRANSACTION_REQUESTS_PORT}
+      - FSP_ID=${SENDER_FSPID}
+      - TRANSFERS_ENDPOINT=http://ml-api-adapter:3000
+      - QUOTES_ENDPOINT=http://quoting-service:3002
+      - PARTIES_ENDPOINT=http://account-lookup-service:4002
+      - TRANSACTION_REQUESTS_ENDPOINT=http://transaction-request-service:4003
       - TRANSFERS_FULFIL_RESPONSE_DISABLED=false
     networks:
       - dfsp-net
@@ -31,12 +30,11 @@ services:
       - "${RECEIVER_PORT}:8444"
     environment:
       - LOG_LEVEL=info
-      - CBH_FSPIOP_FSP_ID=${RECEIVER_FSPID}
-      - CBH_FSPIOP_CALLBACK_HTTP_KEEPALIVE=true
-      - CBH_FSPIOP_ALS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_ALS_PORT}
-      - CBH_FSPIOP_QUOTES_ENDPOINT_URL=http://${CORE_HOST}:${CORE_QUOTE_PORT}
-      - CBH_FSPIOP_TRANSFERS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_PORT}
-      - CBH_FSPIOP_TRANSACTION_REQUESTS_ENDPOINT_URL=http://${CORE_HOST}:${CORE_TRANSACTION_REQUESTS_PORT}
+      - FSP_ID=${RECEIVER_FSPID}
+      - TRANSFERS_ENDPOINT=http://ml-api-adapter:3000
+      - QUOTES_ENDPOINT=http://quoting-service:3002
+      - PARTIES_ENDPOINT=http://account-lookup-service:4002
+      - TRANSACTION_REQUESTS_ENDPOINT=http://transaction-request-service:4003
       - TRANSFERS_FULFIL_RESPONSE_DISABLED=false
     networks:
       - dfsp-net
@@ -85,6 +83,7 @@ services:
       - CORE_ALS_PORT=${CORE_ALS_PORT}
       - ADMIN_API_URL=${CORE_ADMIN_URL}
       - VISUALIZER_URL=http://dfsp-visualizer-ui:3000/events
+      - RECEIVER_CALLBACK_URL=http://custom-dfsp-receiver:3002/transfers
     networks:
       - dfsp-net
       - mojaloop-net
@@ -107,6 +106,7 @@ services:
       - CORE_ALS_PORT=${CORE_ALS_PORT}
       - ADMIN_API_URL=${CORE_ADMIN_URL}
       - VISUALIZER_URL=http://dfsp-visualizer-ui:3000/events
+      - SENDER_CALLBACK_URL=http://custom-dfsp-sender:3001
     networks:
       - dfsp-net
       - mojaloop-net

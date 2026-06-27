@@ -19,6 +19,12 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const FSP_ID = process.env.FSP_ID || 'customfsp';
 const VISUALIZER_URL = process.env.VISUALIZER_URL; // e.g. http://visualizer:3000/events
 const AUTO_FULFIL = (process.env.AUTO_FULFIL || 'true') === 'true';
+// Direct receiver callback URL (fallback for test harnesses without notification handler)
+const RECEIVER_CALLBACK_URL = process.env.RECEIVER_CALLBACK_URL || '';
+
+app.get('/', (req, res) => {
+  res.json({ fspId: FSP_ID, status: 'running', health: '/health', endpoints: ['/health', '/status', '/initiate-transfer', '/quotes', '/transfers'] });
+});
 
 // ── Event broadcasting to visualizer ──────────────────────────────────────
 
@@ -327,6 +333,35 @@ app.put('/quotes/:id', async (req, res) => {
       body: transferBody,
       response: transferRes,
     });
+
+    // Directly notify the receiver DFSP about the transfer (fallback for test harnesses
+    // that don't have the core notification handler running).
+    // On a real ML core this step is done by the core automatically.
+    if (RECEIVER_CALLBACK_URL && transferRes && (transferRes.status === 202 || transferRes.status === 200)) {
+      const receiverPayload = {
+        transferId: transferBody.transferId,
+        payerFsp: transferBody.payerFsp,
+        payeeFsp: transferBody.payeeFsp,
+        amount: transferBody.amount,
+        ilpPacket: transferBody.ilpPacket,
+        condition: transferBody.condition,
+        expiration: transferBody.expiration,
+      };
+      console.log(`[Direct Callback] Notifying receiver at ${RECEIVER_CALLBACK_URL}`);
+      try {
+        await fetch(RECEIVER_CALLBACK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/vnd.interoperability.transfers+json;version=1.0',
+            'FSPIOP-Source': FSP_ID,
+            'FSPIOP-Destination': quote.payeeFsp,
+          },
+          body: JSON.stringify(receiverPayload),
+        });
+      } catch (err) {
+        console.error(`[Direct Callback] Failed to notify receiver: ${err.message}`);
+      }
+    }
   }
 
   res.status(200).json({ received: true, quoteId });
@@ -405,6 +440,46 @@ app.post('/transfers', async (req, res) => {
         body: fulfilmentBody,
         response: fulfilRes,
       });
+
+      // Directly callback the sender DFSP with the fulfilment result (fallback for test
+      // harnesses without the core notification handler).
+      // On a real ML core this is done by the core automatically.
+      const senderCallbackUrl = process.env.SENDER_CALLBACK_URL;
+      if (senderCallbackUrl) {
+        const callbackUrl = `${senderCallbackUrl}/transfers/${transferId}`;
+        console.log(`[Direct Sender Callback] Notifying sender at ${callbackUrl}`);
+        try {
+          const http = require('http');
+          const urlObj = new URL(callbackUrl);
+          const payload = JSON.stringify(fulfilmentBody);
+          const req = http.request({
+            method: 'PUT',
+            hostname: urlObj.hostname,
+            port: urlObj.port,
+            path: urlObj.pathname,
+            headers: {
+              'Content-Type': 'application/vnd.interoperability.transfers+json;version=1.0',
+              'Content-Length': Buffer.byteLength(payload),
+              'FSPIOP-Source': FSP_ID,
+              'FSPIOP-Destination': transfer.payerFsp,
+              'Date': new Date().toUTCString(),
+            },
+          }, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+              console.log(`[Direct Sender Callback] Response ${res.statusCode}: ${data}`);
+            });
+          });
+          req.on('error', (err) => {
+            console.error(`[Direct Sender Callback] Error: ${err.message}`);
+          });
+          req.write(payload);
+          req.end();
+        } catch (err) {
+          console.error(`[Direct Sender Callback] Failed: ${err.message}`);
+        }
+      }
     }, 2000);
   } else {
     res.sendStatus(202);
