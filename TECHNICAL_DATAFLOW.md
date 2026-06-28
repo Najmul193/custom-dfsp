@@ -492,6 +492,14 @@ Reverse direction:
 ./scripts/make-transaction.sh custom-receiver-fsp custom-sender-fsp 10
 ```
 
+### Provision New DFSP
+
+```bash
+./scripts/provision-dfsp.sh my-new-fsp 5000000
+```
+
+This registers `my-new-fsp` in the core and deposits 5,000,000 XXX as initial balance. The new DFSP can then receive or send transfers through the same Mojaloop core.
+
 Direct curl:
 
 ```bash
@@ -661,6 +669,22 @@ It does not make a transaction.
 Recommended:
 
 - Rename to `health-check.sh`, or add an optional transaction mode.
+
+### `scripts/provision-dfsp.sh`
+
+Status: new. Automates DFSP registration and initial funding.
+
+Registers a new DFSP participant in the core and deposits an initial balance in one command:
+
+```bash
+./scripts/provision-dfsp.sh my-new-fsp 5000000
+```
+
+The script:
+- Registers participant via `PUT /participants/{fspId}` on the core admin API
+- Discovers the settlement account ID (`GET /participants/{fspId}/accounts`)
+- Records funds-in via `POST /participants/{fspId}/accounts/{accountId}`
+- Falls back to `docker exec ml-api-adapter` if the admin API is not reachable from the host
 
 ### `scripts/make-transaction.sh`
 

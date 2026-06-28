@@ -65,6 +65,7 @@ cp .env.sample .env
 ./scripts/health-check.sh
 ./scripts/provision-dfsps.sh
 ./scripts/test-transaction.sh
+./scripts/provision-dfsp.sh        # Register & fund a new DFSP
 
 # Start UI services
 docker compose -f docker-compose-ui.yml up -d
@@ -79,6 +80,28 @@ docker logs ui-core-monitor -f
 docker logs custom-dfsp-sender -f
 docker logs custom-dfsp-receiver -f
 ```
+
+## Provisioning a New DFSP
+
+Register a new DFSP in the core and fund it with an initial balance:
+
+```bash
+# Register and deposit 5,000,000 XXX (default currency, port 3000)
+./scripts/provision-dfsp.sh my-new-fsp 5000000
+
+# Custom currency and callback port
+./scripts/provision-dfsp.sh my-new-fsp 10000000 USD 4000
+
+# Explicit callback URL
+./scripts/provision-dfsp.sh my-new-fsp 5000000 XXX http://10.0.0.5:3000
+```
+
+The script:
+1. **Registers** the participant via the core admin API (`PUT /participants/{fspId}`)
+2. **Discovers** the settlement account ID (falls back to `17`)
+3. **Deposits** the initial balance (`POST /participants/{fspId}/accounts/{accountId}`)
+
+It tries direct curl to `CORE_ADMIN_URL` first, then falls back to `docker exec ml-api-adapter` if the core isn't reachable from the host.
 
 ## Notes
 
